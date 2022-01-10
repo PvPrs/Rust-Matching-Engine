@@ -3,19 +3,25 @@ use std::time::SystemTime;
 use crate::entity::{Participant};
 
 pub mod OrderBook {
+    use std::alloc::System;
     use super::*;
     use self::Order::PriceLevel;
-
-    
 
     mod Order {
         use super::*;
 
+        struct OrderData { owner: Participant, amount: f64, }
+        impl OrderData {
+            pub fn new(owner: Participant, amount: f64) -> OrderData {
+                OrderData {
+                    owner,
+                    amount,
+                }
+            }
+        }
+
         #[derive(Debug, Hash, Eq, PartialEq)]
         pub(crate) struct PriceLevel { integral: u64, decimal: u64, }
-
-        struct OrderData { owner: Participant, amount: f64, }
-
         impl PriceLevel {
             pub fn new(value: f64) -> PriceLevel {
                 PriceLevel {
@@ -26,9 +32,14 @@ pub mod OrderBook {
         }
     }
 
+    /*
+    Bids: sorted from high till low (best price == highest price)
+    Asks: sorted from low till high (best price == lowest price)
+    Price time: low till high (oldest timestamps gets priority)
+    */
     pub struct OrderBook {
-        bids: BTreeMap<PriceLevel, SortedMap<SystemTime, OrderData>>,
-        asks: BTreeMap<PriceLevel, SortedMap<SystemTime, OrderData>>,
+        bids: BTreeMap<PriceLevel, BTreeMap<SystemTime, OrderData>>,
+        asks: BTreeMap<PriceLevel, BTreeMap<SystemTime, OrderData>>,
     }
 
     impl OrderBook {
@@ -40,7 +51,10 @@ pub mod OrderBook {
         }
 
         pub fn add_order(&mut self, price_level : PriceLevel) {
-            if (self.asks)
+            let time = SystemTime::now();
+            if !self.bids.contains_key(&price_level) {
+                self.bids.insert(price_level, BTreeMap::new().insert(time, OrderData::new))
+            }
         }
 
         pub fn rm_order() {}
