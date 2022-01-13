@@ -1,7 +1,5 @@
 mod order_book;
-mod entity;
-
-use std::collections::HashMap;
+mod member;
 
 #[cfg(test)]
 mod tests {
