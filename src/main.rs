@@ -1,7 +1,6 @@
 pub mod member;
 pub mod order_book;
 
-
 use crate::member::Participant;
 use crate::order_book::order_book::order::{Order, OrderAction, OrderType};
 use crate::order_book::order_book::PriceLevel;

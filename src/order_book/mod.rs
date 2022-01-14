@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 use std::time::SystemTime;
 
 pub mod order_book {
+    use std::ops::Deref;
     use super::*;
     use order::{Order, OrderAction};
     use std::rc::Rc;
@@ -65,7 +66,7 @@ pub mod order_book {
             }
         }
 
-        pub fn cancel_order(&mut self, order: Order) {
+        pub fn cancel_order(&mut self, order: &Rc<Order>) {
             if !matches!(order.order_action, OrderAction::BUY) {
                 self.bids
                     .get(&order.price_level)
@@ -81,16 +82,9 @@ pub mod order_book {
             }
         }
 
-
         pub fn update_order(&mut self, order: Order, price: Option<PriceLevel>, size: Option<f64>) {
         }
     }
-
-    /*
-     The Order represents a single component of the OrderBook
-     The OrderBook stores "Orders" based on Price_levels
-     So a Canecelation Order must state the Canceled Orders Value.
-    */
 
     pub mod order {
         use crate::order_book::order_book::PriceLevel;
@@ -136,14 +130,3 @@ pub mod order_book {
         }
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use crate::order_book::order_book::OrderBook;
-//     use super::*;
-//     #[test]
-//     fn test_add_order() {
-//         order: OrderBook.
-//         let res = order_book::OrderBook::add_order()
-//     }
-// }

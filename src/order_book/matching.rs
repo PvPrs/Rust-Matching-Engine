@@ -22,29 +22,45 @@ pub mod matching {
             Match { order, book }
         }
 
-        pub fn match_order(&mut self) -> Option<(Order, Order)> {
+        pub fn match_market(&mut self) -> Option<(Order, Order)> {
+            todo!("Merge with limit Matcher function(Same functionality with continuing iter)");
+
             if matches!(self.order.order_type, OrderType::MARKET) {
                 if matches!(self.order.order_action, OrderAction::BUY) {
                     return Some((
                         self.order.clone(),
-                        self.book.asks
-                            .iter().next().expect("Empty PriceLevel.")
+                        self.book.asks.iter().next().expect("Empty PriceLevel.")
                             .1.iter().next().expect("Empty Order.")
-                            .1.clone()
-                    ))
+                            .1.clone())
+                    )
+                } else if matches!(self.order.order_action, OrderAction::SELL) {
+                    return Some((
+                            self.order.clone(),
+                            self.book.bids.iter().rev().next().expect("Empty PriceLevel.")
+                            .1.iter().next().expect("Empty Order.")
+                            .1.clone())
+                    )
+                }
+            }
+            return Option::None
+        }
+
+        pub fn match_limit(&mut self) -> Option<(Order, Order)> {
+                if matches!(self.order.order_action, OrderAction::BUY) {
+                    return Some((
+                        self.order.clone(),
+                        self.book.asks.iter().next().expect("Empty PriceLevel.")
+                            .1.iter().next().expect("Empty Order.")
+                            .1.clone())
+                    )
                 } else if matches!(self.order.order_action, OrderAction::SELL) {
                     return Some((
                         self.order.clone(),
-                        self.book.bids
-							.iter().rev().next().expect("Empty PriceLevel.")
+                        self.book.bids.iter().rev().next().expect("Empty PriceLevel.")
                             .1.iter().next().expect("Empty Order.")
-                            .1.clone()
-                    ))
+                            .1.clone())
+                    )
                 }
-            }
-            else {
-
-            }
             return Option::None
         }
 
