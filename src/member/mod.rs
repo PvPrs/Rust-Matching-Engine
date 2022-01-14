@@ -5,6 +5,7 @@ use crate::order_book::order_book::order::Order;
 pub struct Participant {
     id: u32,
     pub orders: Vec<Rc<Order>>,
+
 }
 
 impl Participant {

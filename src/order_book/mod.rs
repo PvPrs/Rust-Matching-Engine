@@ -1,15 +1,11 @@
 mod matching;
 
-use crate::member::Participant;
 use std::collections::BTreeMap;
 use std::time::SystemTime;
 
 pub mod order_book {
-    use std::borrow::{Borrow, BorrowMut};
     use super::*;
     use order::{Order, OrderAction};
-    use std::hash::Hash;
-    use std::ops::Deref;
     use std::rc::Rc;
 
     /**
@@ -55,8 +51,7 @@ pub mod order_book {
         // todo!("Implement a get map function that returns the current state of the map to main\
         // so the matching engine can parse over the orderbook on a seperate thread.");
 
-        pub fn add_order(&mut self, mut position: Order) -> Order {
-            println!("{}", position.order_size);
+        pub fn add_order(&mut self, position: Order) -> Order {
             if matches!(position.order_action, OrderAction::BUY) {
                 self.bids
                     .entry(position.price_level)
@@ -64,33 +59,31 @@ pub mod order_book {
                     .insert(position.timestamp, position.to_owned());
                 position
             } else {
-                    self.asks
-                        .entry(position.price_level)
-                        .or_insert_with(BTreeMap::new)
-                        .insert(position.timestamp, position.to_owned());
+                self.asks
+                    .entry(position.price_level)
+                    .or_insert_with(BTreeMap::new)
+                    .insert(position.timestamp, position.to_owned());
                 position
             }
         }
 
-        // pub fn cancel_order(&mut self, order: Rc<Order>) {
-        //     if !matches!(order.order_action, OrderAction::BUY) {
-        //         self.bids
-        //             .get(&order.price_level)
-        //             .expect("Order not found!")
-        //             .remove(&order.timestamp);
-        //     } else {
-        //         self.asks
-        //             .get(&order.price_level)
-        //             .expect("Order not found!")
-        //             .remove(&order.timestamp);
-        //     }
-        // }
+        pub fn cancel_order(&mut self, order: Order) {
+            if !matches!(order.order_action, OrderAction::BUY) {
+                self.bids
+                    .get(&order.price_level)
+                    .expect("Order not found.").clone()
+                    .remove(&order.timestamp);
+            } else {
+                self.asks
+                    .get(&order.price_level)
+                    .expect("Order not found.").clone()
+                    .remove(&order.timestamp);
+            }
+        }
 
-        // pub fn update_order(&mut self, order: Rc<Order>, price: Option<PriceLevel>, size: Option<f64>) {
-        //     if order.action_type == OrderAction::BUY {
-        //         self.bids.get(order.price_level)
-        //     }
-        // }
+        pub fn update_order(&mut self, order: Order, price: Option<PriceLevel>, size: Option<f64>) {
+
+        }
     }
 
     /*
@@ -100,9 +93,8 @@ pub mod order_book {
     */
 
     pub mod order {
-        use std::time::SystemTime;
-        use super::Participant;
         use crate::order_book::order_book::PriceLevel;
+        use std::time::SystemTime;
 
         #[derive(Debug, Copy, Clone)]
         pub enum OrderType {
@@ -117,7 +109,7 @@ pub mod order_book {
             UPDATE,
             CANCEL,
         }
-        #[derive(Debug, Clone)]
+        #[derive(Copy, Debug, Clone)]
         pub struct Order {
             pub timestamp: SystemTime,
             pub price_level: PriceLevel,
@@ -138,7 +130,7 @@ pub mod order_book {
                     order_size,
                     order_action: action_type,
                     order_type,
-                    timestamp: SystemTime::now()
+                    timestamp: SystemTime::now(),
                 }
             }
         }
