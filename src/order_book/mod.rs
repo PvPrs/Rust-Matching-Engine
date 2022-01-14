@@ -48,8 +48,6 @@ pub mod order_book {
                 asks: BTreeMap::new(),
             }
         }
-        // todo!("Implement a get map function that returns the current state of the map to main\
-        // so the matching engine can parse over the orderbook on a seperate thread.");
 
         pub fn add_order(&mut self, position: Order) -> Order {
             if matches!(position.order_action, OrderAction::BUY) {
@@ -71,18 +69,20 @@ pub mod order_book {
             if !matches!(order.order_action, OrderAction::BUY) {
                 self.bids
                     .get(&order.price_level)
-                    .expect("Order not found.").clone()
+                    .expect("Order not found.")
+                    .clone()
                     .remove(&order.timestamp);
             } else {
                 self.asks
                     .get(&order.price_level)
-                    .expect("Order not found.").clone()
+                    .expect("Order not found.")
+                    .clone()
                     .remove(&order.timestamp);
             }
         }
 
-        pub fn update_order(&mut self, order: Order, price: Option<PriceLevel>, size: Option<f64>) {
 
+        pub fn update_order(&mut self, order: Order, price: Option<PriceLevel>, size: Option<f64>) {
         }
     }
 

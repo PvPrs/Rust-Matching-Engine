@@ -1,6 +1,7 @@
 pub mod member;
 pub mod order_book;
 
+
 use crate::member::Participant;
 use crate::order_book::order_book::order::{Order, OrderAction, OrderType};
 use crate::order_book::order_book::PriceLevel;
@@ -20,8 +21,7 @@ fn main() {
 
         participant
             .orders
-            .push(Rc::from(book.add_order(order.to_owned())
-            ));
+            .push(Rc::from(book.add_order(order.to_owned())));
 
         println!(
             "{:?}",
@@ -31,5 +31,4 @@ fn main() {
                 .get(&order.timestamp)
         );
     }
-
 }
