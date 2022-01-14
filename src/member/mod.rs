@@ -1,16 +1,14 @@
+use std::rc::Rc;
 use crate::order_book::order_book::order::Order;
 
-trait Participation {
-    // fn new_order() ->
-}
-
-pub struct Participant<'a> {
+#[derive(Debug, Clone)]
+pub struct Participant {
     id: u32,
-    pub orders: Vec<Option<Order<'a>>>,
+    pub orders: Vec<Rc<Order>>,
 }
 
-impl<'a> Participant<'a> {
-    pub fn new(id: u32) -> Participant<'a> {
+impl Participant {
+    pub fn new(id: u32) -> Participant{
         Participant { id, orders: vec![] }
     }
 }

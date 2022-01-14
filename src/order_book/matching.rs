@@ -6,8 +6,7 @@ pub mod matching {
 		ERROR
 	}
 
-	pub fn match_order(order_book: &'a mut OrderBook){
 
-	}
+
 }
 
