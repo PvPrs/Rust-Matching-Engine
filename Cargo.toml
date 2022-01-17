@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 rand = "0.7.3"
+hyper = { version = "0.14.16", features = ["http1", "http2", "tcp", "server"]}
+tokio = { version = "1.15.0", features = ["macros", "rt-multi-thread"]}
