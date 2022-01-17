@@ -29,56 +29,57 @@ pub mod matching_engine {
         */
         pub fn handle_order(&mut self, order: &Order) -> ExecutionReport {
             match order {
-                Order::Buy(mut buyer, mut filled) =>
-                    match buyer.order_type {
+                Order::Buy(mut buyer, mut filled) => match buyer.order_type {
                     OrderType::MARKET => {
-                            for mut map in self.book.asks.clone() {
-                                for (_, mut sell_order) in map.1 {
-                                    match sell_order {
-                                        Order::Sell(mut seller, mut sellerFill) => {
-                                            if buyer.size < seller.size {
-                                                sellerFill = buyer.size;
-                                                return self.book.cancel_order(order.clone(), true);
-                                            } else {
-                                                filled = seller.size;
-                                                return self.book.cancel_order(sell_order.clone(), true);
-                                            }
-                                        }
-                                        _ => ()
-                                    }
-                                }
-                            }
-                    },
-                    OrderType::LIMIT => {
-                        return self.book.add_order(order.clone());
-                    }
-                    _ => ()
-                },
-                Order::Sell(mut seller, mut filled) => {
-                        for mut map in self.book.bids.clone().iter().rev() {
-                            for (_, mut buy_order) in map.1 {
-                                match buy_order {
-                                    Order::Buy(mut buyer, mut buyerFill) => {
-                                        if seller.size > buyer.size {
-                                            filled = buyer.size;
-                                            return self.book.cancel_order(buy_order.clone(), true);
-                                        } else {
-                                            buyerFill = seller.size;
+                        for mut map in self.book.asks.clone() {
+                            for (_, mut sell_order) in map.1 {
+                                match sell_order {
+                                    Order::Sell(mut seller, mut sellerFill) => {
+                                        if buyer.size < seller.size {
+                                            sellerFill = buyer.size;
                                             return self.book.cancel_order(order.clone(), true);
+                                        } else {
+                                            filled = seller.size;
+                                            return self
+                                                .book
+                                                .cancel_order(sell_order.clone(), true);
                                         }
                                     }
-                                    _ => ()
+                                    _ => (),
                                 }
                             }
                         }
-                    },
-                    // if seller.order_type == OrderType::LIMIT {
-                    //     seller.size -= filled;
-                    //     self.book.add_order(order);
-                Order::Cancel(data, .. ) => {
+                    }
+                    OrderType::LIMIT => {
+                        return self.book.add_order(order.clone());
+                    }
+                    _ => (),
+                },
+                Order::Sell(mut seller, mut filled) => {
+                    for mut map in self.book.bids.clone().iter().rev() {
+                        for (_, mut buy_order) in map.1 {
+                            match buy_order {
+                                Order::Buy(mut buyer, mut buyerFill) => {
+                                    if seller.size > buyer.size {
+                                        filled = buyer.size;
+                                        return self.book.cancel_order(buy_order.clone(), true);
+                                    } else {
+                                        buyerFill = seller.size;
+                                        return self.book.cancel_order(order.clone(), true);
+                                    }
+                                }
+                                _ => (),
+                            }
+                        }
+                    }
+                }
+                // if seller.order_type == OrderType::LIMIT {
+                //     seller.size -= filled;
+                //     self.book.add_order(order);
+                Order::Cancel(data, ..) => {
                     return self.book.cancel_order(order.clone(), false);
                 }
-                _ => ()
+                _ => (),
             }
             ExecutionReport::CancelOrder("No market orders available.".to_string(), order.clone())
         }
@@ -108,7 +109,6 @@ pub mod matching_engine {
             NotFound(String, Order),
         }
 
-        impl ExecutionReport {
-        }
+        impl ExecutionReport {}
     }
 }

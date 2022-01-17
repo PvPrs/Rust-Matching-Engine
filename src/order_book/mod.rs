@@ -1,28 +1,36 @@
 pub mod matching_engine;
 
+use crate::order_book::matching_engine::matching_engine::execution_report::ExecutionReport;
+use crate::order_book::order_book::order::{OrderData, OrderType};
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::fmt::{Display, Formatter};
 
 pub mod order_book {
     use super::*;
-    use crate::order_book::matching_engine::matching_engine::execution_report::ExecutionReport;
-    use crate::order_book::order_book::order::{OrderData, OrderType};
-    use order::Order;
+    use crate::order_book::order_book::order::Order;
 
     /**
      * PriceLevel represents the integral and fractional parts of a price.
      */
-    #[derive(Copy, Clone, Ord, PartialOrd, Debug, Hash, Eq, PartialEq)]
+    #[derive(Serialize, Deserialize, Copy, Clone, Ord, PartialOrd, Debug, Hash, Eq, PartialEq)]
     pub struct PriceLevel {
         integral: u64,
         decimal: u64,
     }
 
     impl PriceLevel {
-        pub fn new(value: f64) -> PriceLevel {
+        fn new(value: f64) -> PriceLevel {
             PriceLevel {
                 integral: value.trunc() as u64,
                 decimal: (value.fract() * 100.0) as u64,
             }
+        }
+    }
+
+    impl Display for PriceLevel {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{}.{}", self.integral, self.decimal)
         }
     }
     /*
@@ -96,12 +104,14 @@ pub mod order_book {
                         } else {
                             ExecutionReport::CancelOrder(
                                 "ERROR: Order_id Not Found.".to_string(),
-                                order)
+                                order,
+                            )
                         }
                     } else {
                         ExecutionReport::NotFound(
                             "ERROR: Price_Level not Found!".to_string(),
-                            order)
+                            order,
+                        )
                     }
                 }
                 _ => ExecutionReport::NotFound("Error".to_string(), order),
@@ -115,32 +125,51 @@ pub mod order_book {
                     self.add_order(order);
                     ExecutionReport::OrderUpdate("Order updated.".to_string(), order)
                 }
-                _ => ExecutionReport::NotFound("Error".to_string(),order),
+                _ => ExecutionReport::NotFound("Error".to_string(), order),
             }
         }
     }
 
     pub mod order {
-        use crate::order_book::order_book::PriceLevel;
+        use super::*;
 
         pub enum State {
             Partial,
         }
 
-        #[derive(Debug, Copy, Clone, PartialEq)]
+        #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq)]
         pub enum OrderType {
             MARKET,
             LIMIT,
             UPDATE,
         }
 
-        #[derive(Debug, Copy, Clone)]
+        impl Display for OrderType {
+            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.to_string())
+            }
+        }
+
+        #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
         pub struct OrderData {
             pub id: u64,
+            #[serde(rename = "prev_id")]
             pub prev_id: u64,
+            #[serde(rename = "price_level")]
             pub price_level: PriceLevel,
             pub size: f64,
+            #[serde(rename = "order_type")]
             pub order_type: OrderType,
+        }
+
+        impl Display for OrderData {
+            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                write!(
+                    f,
+                    "{}\n{}\n{}\n{}\n{}",
+                    self.id, self.prev_id, self.price_level, self.size, self.order_type
+                )
+            }
         }
 
         #[derive(Debug, Copy, Clone)]
