@@ -1,13 +1,12 @@
-mod matching;
+pub mod matching_engine;
 
 use std::collections::BTreeMap;
-use std::time::SystemTime;
 
 pub mod order_book {
-    use std::ops::Deref;
     use super::*;
-    use order::{Order, OrderAction};
-    use std::rc::Rc;
+    use crate::order_book::matching_engine::matching_engine::execution_report::ExecutionReport;
+    use crate::order_book::order_book::order::{OrderData, OrderType};
+    use order::Order;
 
     /**
      * PriceLevel represents the integral and fractional parts of a price.
@@ -38,8 +37,8 @@ pub mod order_book {
     */
     #[derive(Debug)]
     pub struct OrderBook {
-        pub bids: BTreeMap<PriceLevel, BTreeMap<SystemTime, Order>>,
-        pub asks: BTreeMap<PriceLevel, BTreeMap<SystemTime, Order>>,
+        pub bids: BTreeMap<PriceLevel, BTreeMap<u64, Order>>,
+        pub asks: BTreeMap<PriceLevel, BTreeMap<u64, Order>>,
     }
 
     impl OrderBook {
@@ -50,83 +49,106 @@ pub mod order_book {
             }
         }
 
-        pub fn add_order(&mut self, position: Order) -> Order {
-            if matches!(position.order_action, OrderAction::BUY) {
-                self.bids
-                    .entry(position.price_level)
-                    .or_insert_with(BTreeMap::new)
-                    .insert(position.timestamp, position.to_owned());
-                position
-            } else {
-                self.asks
-                    .entry(position.price_level)
-                    .or_insert_with(BTreeMap::new)
-                    .insert(position.timestamp, position.to_owned());
-                position
+        pub fn add_order(&mut self, order: Order) -> ExecutionReport {
+            match order {
+                Order::Buy(data, ..) => {
+                    self.bids
+                        .entry(data.price_level)
+                        .or_insert_with(BTreeMap::new)
+                        .insert(data.id, order);
+                    ExecutionReport::OrderUpdate("Added to Order Book.".to_string(), order)
+                }
+                Order::Sell(data, ..) => {
+                    self.asks
+                        .entry(data.price_level)
+                        .or_insert_with(BTreeMap::new)
+                        .insert(data.id, order);
+                    ExecutionReport::OrderUpdate("Added to Order Book.".to_string(), order)
+                }
+                _ => ExecutionReport::NotFound("Error adding to order book.".to_string(), order),
             }
         }
 
-        pub fn cancel_order(&mut self, order: &Rc<Order>) {
-            if !matches!(order.order_action, OrderAction::BUY) {
-                self.bids
-                    .get(&order.price_level)
-                    .expect("Order not found.")
-                    .clone()
-                    .remove(&order.timestamp);
-            } else {
-                self.asks
-                    .get(&order.price_level)
-                    .expect("Order not found.")
-                    .clone()
-                    .remove(&order.timestamp);
+        pub fn cancel_order(&mut self, order: Order, filled: bool) -> ExecutionReport {
+            match order {
+                Order::Buy(data, ..) => {
+                    self.bids.get(&data.price_level).unwrap().clone().remove(
+                        match data.order_type {
+                            OrderType::UPDATE => &data.prev_id,
+                            _ => &data.id,
+                        },
+                    );
+                    ExecutionReport::Filled(
+                        "Order removed from orderbook. Filled buy order.".to_string(),
+                        order,
+                    )
+                }
+                Order::Sell(data, ..) => {
+                    if let Some(mut price_levels) = &self.asks.get(&data.price_level) {
+                        if let Some(id) = price_levels.clone().remove(match data.order_type {
+                            OrderType::UPDATE => &data.prev_id,
+                            _ => &data.id,
+                        }) {
+                            ExecutionReport::Filled(
+                                "Order removed from orderbook. Filled sell Order".to_string(),
+                                order,
+                            )
+                        } else {
+                            ExecutionReport::CancelOrder(
+                                "ERROR: Order_id Not Found.".to_string(),
+                                order)
+                        }
+                    } else {
+                        ExecutionReport::NotFound(
+                            "ERROR: Price_Level not Found!".to_string(),
+                            order)
+                    }
+                }
+                _ => ExecutionReport::NotFound("Error".to_string(), order),
             }
         }
 
-        pub fn update_order(&mut self, order: Order, price: Option<PriceLevel>, size: Option<f64>) {
+        pub fn update_order(&mut self, order: Order) -> ExecutionReport {
+            match order {
+                Order::Update(data) => {
+                    self.cancel_order(order, false);
+                    self.add_order(order);
+                    ExecutionReport::OrderUpdate("Order updated.".to_string(), order)
+                }
+                _ => ExecutionReport::NotFound("Error".to_string(),order),
+            }
         }
     }
 
     pub mod order {
         use crate::order_book::order_book::PriceLevel;
-        use std::time::SystemTime;
 
-        #[derive(Debug, Copy, Clone)]
+        pub enum State {
+            Partial,
+        }
+
+        #[derive(Debug, Copy, Clone, PartialEq)]
         pub enum OrderType {
             MARKET,
             LIMIT,
+            UPDATE,
         }
 
         #[derive(Debug, Copy, Clone)]
-        pub enum OrderAction {
-            BUY,
-            SELL,
-            UPDATE,
-            CANCEL,
-        }
-        #[derive(Copy, Debug, Clone)]
-        pub struct Order {
-            pub timestamp: SystemTime,
+        pub struct OrderData {
+            pub id: u64,
+            pub prev_id: u64,
             pub price_level: PriceLevel,
-            pub order_size: f64,
-            pub order_action: OrderAction,
+            pub size: f64,
             pub order_type: OrderType,
         }
 
-        impl Order {
-            pub fn new(
-                price_level: PriceLevel,
-                order_size: f64,
-                order_type: OrderType,
-                action_type: OrderAction,
-            ) -> Order {
-                Order {
-                    price_level,
-                    order_size,
-                    order_action: action_type,
-                    order_type,
-                    timestamp: SystemTime::now(),
-                }
-            }
+        #[derive(Debug, Copy, Clone)]
+        pub enum Order {
+            Buy(OrderData, f64),
+            Sell(OrderData, f64),
+            Update(OrderData),
+            Cancel(OrderData),
         }
     }
 }
