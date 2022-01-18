@@ -5,7 +5,7 @@ pub mod order_book;
 use std::net::SocketAddr;
 use std::sync::mpsc::sync_channel;
 use std::sync::{Arc, Mutex};
-use std::thread;
+use std::{thread, time};
 
 use crate::net::net::listen_serve;
 use crate::order_book::matching_engine::matching_engine::MatchingEngine;
@@ -14,7 +14,6 @@ use crate::order_book::order_book::PriceLevel;
 
 #[tokio::main]
 async fn main() {
-
     let order_data = Arc::new(Mutex::new(OrderData {
         id: 0,
         prev_id: 0,
@@ -24,8 +23,9 @@ async fn main() {
     }));
 
     let data = Arc::clone(&order_data);
-    thread::spawn(|| async move {
-        listen_serve(SocketAddr::from(([127, 0, 0, 1], 43594)), Arc::clone(&data)).await;
+
+    tokio::spawn(async move {
+        listen_serve(SocketAddr::from(([127, 0, 0, 1], 43594)), Arc::clone(&data)).await
     });
 
     let mut matching_engine: MatchingEngine = MatchingEngine::new();
@@ -33,5 +33,6 @@ async fn main() {
         let order = *Arc::clone(&order_data).lock().unwrap();
         let res = matching_engine.handle_order(&Order::Sell(order.clone(), 0.0));
         println!("{}", format!("{:?}\n\n", res));
+        thread::sleep(time::Duration::from_secs(5))
     }
 }

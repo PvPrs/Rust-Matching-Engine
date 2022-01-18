@@ -38,12 +38,7 @@ pub mod net {
             let service = service_fn(move |req| handle_incoming(req, Arc::clone(&data)));
             async move { Ok::<_, hyper::Error>(service) }
         });
-        // let make_service = make_service_fn(move |conn| async move {
-        //     let data = Arc::clone(&data);
-        //     Ok::<_, hyper::Error>(service_fn(move |req| async move {
-        //         handle_incoming(req, data).await
-        //     }))
-        // });
+
         let server = Server::bind(&socket).serve(make_service);
         println!("Listening on: {}.", server.local_addr().ip());
 
