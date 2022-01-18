@@ -1,12 +1,12 @@
-mod order_book;
 mod member;
+mod order_book;
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
     use crate::member::Participant;
     use crate::order_book::order_book::order::{Order, OrderAction, OrderType};
     use crate::order_book::order_book::{OrderBook, PriceLevel};
+    use std::rc::Rc;
 
     #[test]
     fn fn_test_add_orders() {

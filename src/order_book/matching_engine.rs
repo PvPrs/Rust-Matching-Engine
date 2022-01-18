@@ -34,12 +34,12 @@ pub mod matching_engine {
                         for mut map in self.book.asks.clone() {
                             for (_, mut sell_order) in map.1 {
                                 match sell_order {
-                                    Order::Sell(mut seller, mut sellerFill) => {
-                                        if buyer.size < seller.size {
-                                            sellerFill = buyer.size;
+                                    Order::Sell(mut seller, mut seller_fill) => {
+                                        if buyer.qty < seller.qty {
+                                            seller_fill = buyer.qty;
                                             return self.book.cancel_order(order.clone(), true);
                                         } else {
-                                            filled = seller.size;
+                                            filled = seller.qty;
                                             return self
                                                 .book
                                                 .cancel_order(sell_order.clone(), true);
@@ -51,6 +51,7 @@ pub mod matching_engine {
                         }
                     }
                     OrderType::LIMIT => {
+                        // self.book.asks.get(orde)
                         return self.book.add_order(order.clone());
                     }
                     _ => (),
@@ -59,12 +60,12 @@ pub mod matching_engine {
                     for mut map in self.book.bids.clone().iter().rev() {
                         for (_, mut buy_order) in map.1 {
                             match buy_order {
-                                Order::Buy(mut buyer, mut buyerFill) => {
-                                    if seller.size > buyer.size {
-                                        filled = buyer.size;
+                                Order::Buy(mut buyer, mut buyer_fill) => {
+                                    if seller.qty > buyer.qty {
+                                        filled = buyer.qty;
                                         return self.book.cancel_order(buy_order.clone(), true);
                                     } else {
-                                        buyerFill = seller.size;
+                                        buyer_fill = seller.qty;
                                         return self.book.cancel_order(order.clone(), true);
                                     }
                                 }
@@ -79,20 +80,10 @@ pub mod matching_engine {
                 Order::Cancel(data, ..) => {
                     return self.book.cancel_order(order.clone(), false);
                 }
+                // Order::Update(data, .. ) => self.book.update_order(order.clone())
                 _ => (),
             }
             ExecutionReport::CancelOrder("No market orders available.".to_string(), order.clone())
-        }
-
-        pub fn swap_assets(&mut self, owner: &mut OrderData, opposition: &mut OrderData) -> f64 {
-            let mut filled: f64 = 0.0;
-            if opposition.size >= owner.size {
-                filled = owner.size;
-                opposition.size -= owner.size;
-            } else {
-                filled += owner.size;
-            }
-            filled
         }
     }
 
@@ -112,3 +103,5 @@ pub mod matching_engine {
         impl ExecutionReport {}
     }
 }
+
+// Test Module

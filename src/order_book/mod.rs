@@ -20,7 +20,7 @@ pub mod order_book {
     }
 
     impl PriceLevel {
-        fn new(value: f64) -> PriceLevel {
+        pub fn new(value: f64) -> PriceLevel {
             PriceLevel {
                 integral: value.trunc() as u64,
                 decimal: (value.fract() * 100.0) as u64,
@@ -142,6 +142,7 @@ pub mod order_book {
             MARKET,
             LIMIT,
             UPDATE,
+            CANCEL,
         }
 
         impl Display for OrderType {
@@ -157,7 +158,7 @@ pub mod order_book {
             pub prev_id: u64,
             #[serde(rename = "price_level")]
             pub price_level: PriceLevel,
-            pub size: f64,
+            pub qty: f64,
             #[serde(rename = "order_type")]
             pub order_type: OrderType,
         }
@@ -167,7 +168,7 @@ pub mod order_book {
                 write!(
                     f,
                     "{}\n{}\n{}\n{}\n{}",
-                    self.id, self.prev_id, self.price_level, self.size, self.order_type
+                    self.id, self.prev_id, self.price_level, self.qty, self.order_type
                 )
             }
         }
@@ -181,3 +182,6 @@ pub mod order_book {
         }
     }
 }
+
+// Test Module
+// use rand::{thread_rng, Rng};
