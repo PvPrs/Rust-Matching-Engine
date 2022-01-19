@@ -10,7 +10,7 @@ mod tests {
 
     #[test]
     fn fn_test_add_orders() {
-        let mut book: OrderBook = OrderBook::new();
+        let mut bookc: OrderBook = OrderBook::new();
         let mut participant: Participant = Participant::new(1);
         let mut order: Order = Order::new(
             PriceLevel::new(500 as f64),

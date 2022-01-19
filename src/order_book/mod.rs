@@ -11,7 +11,8 @@ pub mod order_book {
     use crate::order_book::order_book::order::Order;
 
     /**
-     * PriceLevel represents the integral and fractional parts of a price.
+    PriceLevel represents the integral and fractional parts of a price.
+    to resolve the F64 related hash function problem.
      */
     #[derive(Serialize, Deserialize, Copy, Clone, Ord, PartialOrd, Debug, Hash, Eq, PartialEq)]
     pub struct PriceLevel {
@@ -59,14 +60,14 @@ pub mod order_book {
 
         pub fn add_order(&mut self, order: Order) -> ExecutionReport {
             match order {
-                Order::Buy(data, ..) => {
+                Order::Buy {order: data, .. } => {
                     self.bids
                         .entry(data.price_level)
                         .or_insert_with(BTreeMap::new)
                         .insert(data.id, order);
                     ExecutionReport::OrderUpdate("Added to Order Book.".to_string(), order)
                 }
-                Order::Sell(data, ..) => {
+                Order::Sell {order: data, .. } => {
                     self.asks
                         .entry(data.price_level)
                         .or_insert_with(BTreeMap::new)
@@ -79,7 +80,7 @@ pub mod order_book {
 
         pub fn cancel_order(&mut self, order: Order, filled: bool) -> ExecutionReport {
             match order {
-                Order::Buy(data, ..) => {
+                Order::Buy {order: data, .. } => {
                     self.bids.get(&data.price_level).unwrap().clone().remove(
                         match data.order_type {
                             OrderType::UPDATE => &data.prev_id,
@@ -91,7 +92,7 @@ pub mod order_book {
                         order,
                     )
                 }
-                Order::Sell(data, ..) => {
+                Order::Sell {order: data, .. } => {
                     if let Some(mut price_levels) = &self.asks.get(&data.price_level) {
                         if let Some(id) = price_levels.clone().remove(match data.order_type {
                             OrderType::UPDATE => &data.prev_id,
@@ -175,8 +176,8 @@ pub mod order_book {
 
         #[derive(Debug, Copy, Clone)]
         pub enum Order {
-            Buy(OrderData, f64),
-            Sell(OrderData, f64),
+            Buy { order: OrderData, filled: f64 },
+            Sell { order: OrderData, filled: f64 },
             Update(OrderData),
             Cancel(OrderData),
         }

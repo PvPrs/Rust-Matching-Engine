@@ -27,14 +27,14 @@ pub mod matching_engine {
         /**
         Turn this into a Generic function, Same functionality used multiple times.
         */
-        pub fn handle_order(&mut self, order: &Order) -> ExecutionReport {
+        pub fn handle_order(&mut self, order: &Order, x: f64) -> ExecutionReport {
             match order {
-                Order::Buy(mut buyer, mut filled) => match buyer.order_type {
+                Order::Buy { order: mut buyer, filled: mut filled} => match buyer.order_type {
                     OrderType::MARKET => {
                         for mut map in self.book.asks.clone() {
                             for (_, mut sell_order) in map.1 {
                                 match sell_order {
-                                    Order::Sell(mut seller, mut seller_fill) => {
+                                    Order::Sell { order: mut seller, filled: mut seller_fill} => {
                                         if buyer.qty < seller.qty {
                                             seller_fill = buyer.qty;
                                             return self.book.cancel_order(order.clone(), true);
@@ -56,11 +56,11 @@ pub mod matching_engine {
                     }
                     _ => (),
                 },
-                Order::Sell(mut seller, mut filled) => {
+                Order::Sell { order: mut seller, filled: mut filled } => {
                     for mut map in self.book.bids.clone().iter().rev() {
                         for (_, mut buy_order) in map.1 {
                             match buy_order {
-                                Order::Buy(mut buyer, mut buyer_fill) => {
+                                Order::Buy { order: mut buyer, filled: mut buyer_fill } => {
                                     if seller.qty > buyer.qty {
                                         filled = buyer.qty;
                                         return self.book.cancel_order(buy_order.clone(), true);
@@ -103,5 +103,7 @@ pub mod matching_engine {
         impl ExecutionReport {}
     }
 }
+
+
 
 // Test Module
