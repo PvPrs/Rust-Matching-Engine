@@ -16,18 +16,18 @@ use crate::order_book::order_book::PriceLevel;
 
 #[tokio::main]
 async fn main() {
-    let order = Arc::new(Mutex::new());
-
-    let data = Arc::clone(&order);
+    let order = Arc::new(Mutex::new(Order::None));
+    let order_rc = Arc::clone(&order);
 
     tokio::spawn(async move {
-        listen_serve(SocketAddr::from(([127, 0, 0, 1], 43594)), Arc::clone(&data)).await
+        listen_serve(SocketAddr::from(([127, 0, 0, 1], 43594)), Arc::clone(&order_rc)).await
     });
 
     let mut matching_engine: MatchingEngine = MatchingEngine::new();
     loop {
         let order_data = *Arc::clone(&order).lock().unwrap();
-        let res = matching_engine.handle_order(order_data, 0.0);
+       // println("{}")
+        let res = matching_engine.handle_order(&order_data, 0.0);
         println!("{}", format!("{:?}\n\n", res));
         thread::sleep(time::Duration::from_secs(5))
     }

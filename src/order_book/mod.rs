@@ -174,12 +174,13 @@ pub mod order_book {
             }
         }
 
-        #[derive(Debug, Copy, Clone)]
+        #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
         pub enum Order {
             Buy { order: OrderData, filled: f64 },
             Sell { order: OrderData, filled: f64 },
             Update(OrderData),
             Cancel(OrderData),
+            None,
         }
     }
 }

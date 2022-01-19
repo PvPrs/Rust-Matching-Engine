@@ -1,18 +1,11 @@
 use crate::order_book::order_book::order::Order;
 use crate::order_book::order_book::OrderBook;
+use crate::order_book::matching_engine::matching_engine::execution_report::ExecutionReport;
+use crate::order_book::order_book::order::{OrderData, OrderType};
 
 pub mod matching_engine {
     use super::*;
-    use crate::order_book::matching_engine::matching_engine::execution_report::ExecutionReport;
-    use crate::order_book::order_book::order::{OrderData, OrderType};
-    /*
-       The Matching engine is supposed to parse the Order Book
-       because the OrderBook is sorted by default, the first occurance
-       will always be the best match. either in reverse(descending) traverse or ascending
-       when it comes to market orders.
 
-       for limit
-    */
     pub struct MatchingEngine {
         pub book: OrderBook,
     }

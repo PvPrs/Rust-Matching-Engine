@@ -7,6 +7,7 @@ use std::net::SocketAddr;
 
 pub mod net {
     use super::*;
+    use crate::Order;
     use hyper::server::conn::AddrIncoming;
     use std::convert::Infallible;
     use std::ops::Deref;
@@ -14,13 +15,15 @@ pub mod net {
 
     pub async fn handle_incoming(
         req: Request<Body>,
-        data: Arc<Mutex<OrderData>>,
+        data: Arc<Mutex<Order>>,
     ) -> Result<Response<Body>, hyper::Error> {
         let (head, body) = req.into_parts();
         match (head.method, head.uri.path()) {
             (Method::POST, "/") => {
                 let body = body::to_bytes(body).await?;
-                let order: OrderData = serde_json::from_slice(&body).unwrap();
+                let order: Order = serde_json::from_slice(&body)
+                    .map_err(|err| Order::None)
+                    .unwrap();
                 *data.lock().unwrap() = order;
                 return Ok(Response::new(Body::from(
                     serde_json::to_string(&order).unwrap(),
@@ -32,7 +35,7 @@ pub mod net {
         Ok(Response::new(body))
     }
 
-    pub async fn listen_serve(socket: SocketAddr, data: Arc<Mutex<OrderData>>) {
+    pub async fn listen_serve(socket: SocketAddr, data: Arc<Mutex<Order>>) {
         let make_service = make_service_fn(move |_| {
             let data = Arc::clone(&data);
             let service = service_fn(move |req| handle_incoming(req, Arc::clone(&data)));
