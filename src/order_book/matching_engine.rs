@@ -2,6 +2,7 @@ use crate::order_book::order_book::order::Order;
 use crate::order_book::order_book::OrderBook;
 use crate::order_book::matching_engine::matching_engine::execution_report::ExecutionReport;
 use crate::order_book::order_book::order::{OrderData, OrderType};
+use chrono::
 
 pub mod matching_engine {
     use super::*;
@@ -17,25 +18,23 @@ pub mod matching_engine {
             }
         }
 
-        /**
-        Turn this into a Generic function, Same functionality used multiple times.
-        */
+        // Turn this into a Generic function
+        // Same functionality used multiple times <Buy, Sell>
         pub fn handle_order(&mut self, order: &Order, x: f64) -> ExecutionReport {
             match order {
-                Order::Buy { order: mut buyer, filled: mut filled} => match buyer.order_type {
+                Order::Buy { order: mut buyer, filled: mut filled} =>
+                    match buyer.order_type {
                     OrderType::MARKET => {
                         for mut map in self.book.asks.clone() {
                             for (_, mut sell_order) in map.1 {
                                 match sell_order {
                                     Order::Sell { order: mut seller, filled: mut seller_fill} => {
-                                        if buyer.qty < seller.qty {
+                                        return if buyer.qty < seller.qty {
                                             seller_fill = buyer.qty;
-                                            return self.book.cancel_order(order.clone(), true);
+                                            self.book.cancel_order(order.clone(), true)
                                         } else {
                                             filled = seller.qty;
-                                            return self
-                                                .book
-                                                .cancel_order(sell_order.clone(), true);
+                                            self.book.cancel_order(sell_order.clone(), true)
                                         }
                                     }
                                     _ => (),
@@ -54,12 +53,12 @@ pub mod matching_engine {
                         for (_, mut buy_order) in map.1 {
                             match buy_order {
                                 Order::Buy { order: mut buyer, filled: mut buyer_fill } => {
-                                    if seller.qty > buyer.qty {
+                                    return if seller.qty > buyer.qty {
                                         filled = buyer.qty;
-                                        return self.book.cancel_order(buy_order.clone(), true);
+                                        self.book.cancel_order(buy_order.clone(), true)
                                     } else {
                                         buyer_fill = seller.qty;
-                                        return self.book.cancel_order(order.clone(), true);
+                                        self.book.cancel_order(order.clone(), true)
                                     }
                                 }
                                 _ => (),
@@ -76,21 +75,28 @@ pub mod matching_engine {
                 // Order::Update(data, .. ) => self.book.update_order(order.clone())
                 _ => (),
             }
-            ExecutionReport::CancelOrder("No market orders available.".to_string(), order.clone())
+            ExecutionReport::NotFound()
         }
     }
 
     pub mod execution_report {
-        use crate::order_book::matching_engine::matching_engine::execution_report::ExecutionReport::OrderUpdate;
+        use chrono::{DateTime, Utc};
         use crate::order_book::order_book::order::Order;
+        use serde::{Deserialize, Serialize};
 
-        #[derive(Debug)]
+        pub struct ReportData {
+            matches: Vec<Order>,
+            time_stamp: DateTime<Utc>
+        }
+
+        #[derive(Debug, Serialize, Deserialize)]
         pub enum ExecutionReport {
-            PartialFill(String, Order),
-            Filled(String, Order),
-            CancelOrder(String, Order),
-            OrderUpdate(String, Order),
-            NotFound(String, Order),
+            
+            PartialFill(ReportData),
+            Filled(ReportData),
+            CancelOrder(ReportData),
+            OrderUpdate(ReportData),
+            NotFound(),
         }
 
         impl ExecutionReport {}

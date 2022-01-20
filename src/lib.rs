@@ -1,4 +1,3 @@
-mod member;
 mod order_book;
 
 #[cfg(test)]

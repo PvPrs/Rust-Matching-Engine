@@ -5,15 +5,12 @@ use crate::order_book::order_book::order::{OrderData, OrderType};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
-
+use chrono::DateTime;
 pub mod order_book {
     use super::*;
     use crate::order_book::order_book::order::Order;
 
-    /**
-    PriceLevel represents the integral and fractional parts of a price.
-    to resolve the F64 related hash function problem.
-     */
+
     #[derive(Serialize, Deserialize, Copy, Clone, Ord, PartialOrd, Debug, Hash, Eq, PartialEq)]
     pub struct PriceLevel {
         integral: u64,
@@ -34,16 +31,7 @@ pub mod order_book {
             write!(f, "{}.{}", self.integral, self.decimal)
         }
     }
-    /*
-    @Bids: (best price == highest price)
-    [LAST_ENTRY] = MATCH(market)
-    [ITER.rev(reverse) through PRICELEVEL] get [FIRST TIMESTAMP] = MATCH (Limit)
-    ----------------------------------
-    @Asks: (best price == lowest price)
-    [POP_FIRST] (market)
-    [ITER PRICELEVEL] [FIRST TIMESTAMP] = MATCH (Limit)
-    Price time: low till high (oldest timestamps gets priority) [POP_LAST]
-    */
+
     #[derive(Debug)]
     pub struct OrderBook {
         pub bids: BTreeMap<PriceLevel, BTreeMap<u64, Order>>,
@@ -176,8 +164,16 @@ pub mod order_book {
 
         #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
         pub enum Order {
-            Buy { order: OrderData, filled: f64 },
-            Sell { order: OrderData, filled: f64 },
+            Buy {
+                order: OrderData,
+                #[serde(skip_serializing)]
+                filled: f64
+            },
+            Sell {
+                order: OrderData,
+                #[serde(skip_serializing)]
+                filled: f64
+            },
             Update(OrderData),
             Cancel(OrderData),
             None,
