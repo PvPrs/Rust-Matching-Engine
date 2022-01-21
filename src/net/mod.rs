@@ -11,10 +11,13 @@ pub mod net {
     use hyper::server::conn::AddrIncoming;
     use std::convert::Infallible;
     use std::ops::Deref;
+    use std::sync::Arc;
     use tokio::sync::Mutex;
-    use std::sync::{Arc};
 
-    pub async fn handle_incoming(req: Request<Body>, tx: tokio::sync::mpsc::Sender<Order>) -> Result<Response<Body>, hyper::Error> {
+    pub async fn handle_incoming(
+        req: Request<Body>,
+        tx: tokio::sync::mpsc::Sender<Order>,
+    ) -> Result<Response<Body>, hyper::Error> {
         let (head, body) = req.into_parts();
         match (head.method, head.uri.path()) {
             (Method::POST, "/") => {
@@ -22,7 +25,6 @@ pub mod net {
                 let order: Order = serde_json::from_slice(&body)
                     .map_err(|err| Order::None)
                     .unwrap();
-                // send order to main green thread
                 tx.send(order).await.unwrap();
                 return Ok(Response::new(Body::from(
                     serde_json::to_string(&order).unwrap(),
@@ -37,7 +39,7 @@ pub mod net {
     pub async fn listen_serve(socket: SocketAddr, tx: tokio::sync::mpsc::Sender<Order>) {
         let make_service = make_service_fn(move |_| {
             let c_tx = tx.clone();
-            let service = service_fn(move |req| handle_incoming(req,c_tx.clone()));
+            let service = service_fn(move |req| handle_incoming(req, c_tx.clone()));
             async move { Ok::<_, hyper::Error>(service) }
         });
 

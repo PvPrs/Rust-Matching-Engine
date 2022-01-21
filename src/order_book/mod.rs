@@ -5,11 +5,10 @@ use crate::order_book::order_book::order::{OrderData, OrderType};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
-use chrono::DateTime;
+
 pub mod order_book {
     use super::*;
     use crate::order_book::order_book::order::Order;
-
 
     #[derive(Serialize, Deserialize, Copy, Clone, Ord, PartialOrd, Debug, Hash, Eq, PartialEq)]
     pub struct PriceLevel {
@@ -32,6 +31,8 @@ pub mod order_book {
         }
     }
 
+    // Represents a order book sorted by price-time
+    // u64 = orderID doubling as time identifier(increased in time).
     #[derive(Debug)]
     pub struct OrderBook {
         pub bids: BTreeMap<PriceLevel, BTreeMap<u64, Order>>,
@@ -48,14 +49,14 @@ pub mod order_book {
 
         pub fn add_order(&mut self, order: Order) -> ExecutionReport {
             match order {
-                Order::Buy {order: data, .. } => {
+                Order::Buy { order: data, .. } => {
                     self.bids
                         .entry(data.price_level)
                         .or_insert_with(BTreeMap::new)
                         .insert(data.id, order);
                     ExecutionReport::OrderUpdate("Added to Order Book.".to_string(), order)
                 }
-                Order::Sell {order: data, .. } => {
+                Order::Sell { order: data, .. } => {
                     self.asks
                         .entry(data.price_level)
                         .or_insert_with(BTreeMap::new)
@@ -66,9 +67,13 @@ pub mod order_book {
             }
         }
 
+        // Cancels order throughout multiple scenario's
+        // Order removal on:
+        // - Fill               - No orders found[Market]
+        // - Cancel / Update
         pub fn cancel_order(&mut self, order: Order, filled: bool) -> ExecutionReport {
             match order {
-                Order::Buy {order: data, .. } => {
+                Order::Buy { order: data, .. } => {
                     self.bids.get(&data.price_level).unwrap().clone().remove(
                         match data.order_type {
                             OrderType::UPDATE => &data.prev_id,
@@ -80,16 +85,14 @@ pub mod order_book {
                         order,
                     )
                 }
-                Order::Sell {order: data, .. } => {
+                Order::Sell { order: data, .. } => {
                     if let Some(mut price_levels) = &self.asks.get(&data.price_level) {
                         if let Some(id) = price_levels.clone().remove(match data.order_type {
                             OrderType::UPDATE => &data.prev_id,
                             _ => &data.id,
                         }) {
-                            ExecutionReport::Filled(
-                                "Order removed from orderbook. Filled sell Order".to_string(),
-                                order,
-                            )
+                            ExecutionReport::Filled("Order removed from orderbook. Filled sell Order".to_string(),
+                                order)
                         } else {
                             ExecutionReport::CancelOrder(
                                 "ERROR: Order_id Not Found.".to_string(),
@@ -107,6 +110,8 @@ pub mod order_book {
             }
         }
 
+        // Price-Time is reset during update
+        // Canceling & re-adding said orders.
         pub fn update_order(&mut self, order: Order) -> ExecutionReport {
             match order {
                 Order::Update(data) => {
@@ -167,12 +172,12 @@ pub mod order_book {
             Buy {
                 order: OrderData,
                 #[serde(skip_serializing)]
-                filled: f64
+                filled: f64,
             },
             Sell {
                 order: OrderData,
                 #[serde(skip_serializing)]
-                filled: f64
+                filled: f64,
             },
             Update(OrderData),
             Cancel(OrderData),
