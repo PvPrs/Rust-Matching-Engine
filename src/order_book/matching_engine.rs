@@ -31,7 +31,7 @@ pub mod matching_engine {
                 // Market Buy Order handling, Looks for match in asks.
                 Order::Buy { order, filled } |
                 Order::Sell { order, filled } => {
-                    let book_side = if incoming_order == (Order::Buy { }) {
+                    let mut book_side = if let Order::Buy { .. } = incoming_order {
                         Either::Left(self.book.asks.clone())
                     } else {
                         Either::Right(self.book.bids.clone().iter().rev())
@@ -46,11 +46,7 @@ pub mod matching_engine {
                         }
                         OrderType::LIMIT => {
                             let mut result = Events::NotFound(*incoming_order);
-                            match if incoming_order == Order::Buy {
-                                self.book.asks.get(&order.price_level)
-                            } else {
-                                self.book.bids.get(&order.price_level) }
-                            {
+                            match book_side {
                                 None => self.book.add_order(incoming_order.clone()),
                                 Some(res) => res.iter().for_each(|(participant, other)| {
                                     result = self.is_match(incoming_order, other);
