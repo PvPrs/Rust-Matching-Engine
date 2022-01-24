@@ -1,6 +1,6 @@
 pub mod matching_engine;
 
-use crate::order_book::matching_engine::matching_engine::execution_report::ExecutionReport;
+use crate::order_book::matching_engine::matching_engine::execution_report::Events;
 use crate::order_book::order_book::order::{OrderData, OrderType};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -47,23 +47,25 @@ pub mod order_book {
             }
         }
 
-        pub fn add_order(&mut self, order: Order) -> ExecutionReport {
+        pub fn add_order(&mut self, order: Order) -> Events {
             match order {
-                Order::Buy { order: data, .. } => {
+                Order::Buy { order: data, filled } => {
+                    if filled == data.qty { Events::NotFound(order) }
                     self.bids
                         .entry(data.price_level)
                         .or_insert_with(BTreeMap::new)
                         .insert(data.id, order);
-                    ExecutionReport::OrderUpdate("Added to Order Book.".to_string(), order)
+                    Events::New(order)
                 }
-                Order::Sell { order: data, .. } => {
+                Order::Sell { order: data, filled } => {
+                    if filled == data.qty { Events::NotFound(order) }
                     self.asks
                         .entry(data.price_level)
                         .or_insert_with(BTreeMap::new)
                         .insert(data.id, order);
-                    ExecutionReport::OrderUpdate("Added to Order Book.".to_string(), order)
+                    Events::OrderUpdate(order)
                 }
-                _ => ExecutionReport::NotFound("Error adding to order book.".to_string(), order),
+                _ => Events::NotFound(order),
             }
         }
 
@@ -71,7 +73,7 @@ pub mod order_book {
         // Order removal on:
         // - Fill               - No orders found[Market]
         // - Cancel / Update
-        pub fn cancel_order(&mut self, order: Order, filled: bool) -> ExecutionReport {
+        pub fn cancel_order(&mut self, order: Order, filled: bool) -> Events {
             match order {
                 Order::Buy { order: data, .. } => {
                     self.bids.get(&data.price_level).unwrap().clone().remove(
@@ -80,10 +82,7 @@ pub mod order_book {
                             _ => &data.id,
                         },
                     );
-                    ExecutionReport::Filled(
-                        "Order removed from orderbook. Filled buy order.".to_string(),
-                        order,
-                    )
+                    Events::Filled(order, data)
                 }
                 Order::Sell { order: data, .. } => {
                     if let Some(mut price_levels) = &self.asks.get(&data.price_level) {
@@ -91,35 +90,28 @@ pub mod order_book {
                             OrderType::UPDATE => &data.prev_id,
                             _ => &data.id,
                         }) {
-                            ExecutionReport::Filled("Order removed from orderbook. Filled sell Order".to_string(),
-                                order)
+                            Events::Filled(order, data)
                         } else {
-                            ExecutionReport::CancelOrder(
-                                "ERROR: Order_id Not Found.".to_string(),
-                                order,
-                            )
+                            Events::CancelOrder(order)
                         }
                     } else {
-                        ExecutionReport::NotFound(
-                            "ERROR: Price_Level not Found!".to_string(),
-                            order,
-                        )
+                        Events::NotFound(order)
                     }
                 }
-                _ => ExecutionReport::NotFound("Error".to_string(), order),
+                _ => Events::NotFound(order),
             }
         }
 
         // Price-Time is reset during update
         // Canceling & re-adding said orders.
-        pub fn update_order(&mut self, order: Order) -> ExecutionReport {
+        pub fn update_order(&mut self, order: Order) -> Events {
             match order {
                 Order::Update(data) => {
                     self.cancel_order(order, false);
                     self.add_order(order);
-                    ExecutionReport::OrderUpdate("Order updated.".to_string(), order)
+                    Events::OrderUpdate(order)
                 }
-                _ => ExecutionReport::NotFound("Error".to_string(), order),
+                _ => Events::NotFound(order),
             }
         }
     }

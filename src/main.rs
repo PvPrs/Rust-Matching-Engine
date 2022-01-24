@@ -25,9 +25,15 @@ async fn main() {
         listen_serve(SocketAddr::from(([127, 0, 0, 1], 43594)), tx.clone()).await
     });
 
+    let mut execution_events: Vec<Event>;
     let mut matching_engine: MatchingEngine = MatchingEngine::new();
-    while let order = rx.recv().await.unwrap() {
-        let res = matching_engine.match_order(&order, 0.0);
+
+    while let incoming_order = rx.recv().await.unwrap() {
+        match incoming_order {
+            Order::Buy { order, .. } | Order::Sell { order, ..} =>
+                execution_events.push(matching_engine.match_order(&incoming_order, 0.0)),;
+            _ => { matching_engine.match_order(&incoming_order, 0.0) }
+        }
         println!("{}", serde_json::to_string_pretty(&res).unwrap());
     }
 }
