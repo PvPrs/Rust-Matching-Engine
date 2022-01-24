@@ -30,9 +30,12 @@ async fn main() {
 
     while let incoming_order = rx.recv().await.unwrap() {
         match incoming_order {
-            Order::Buy { order, .. } | Order::Sell { order, ..} =>
-                execution_events.push(matching_engine.match_order(&incoming_order, 0.0)),;
-            _ => { matching_engine.match_order(&incoming_order, 0.0) }
+            Order::Buy { order, filled } | Order::Sell { order, filled } => {
+                while filled != order.qty {
+                    execution_events.push(matching_engine.match_order(&incoming_order))
+                }
+            }
+            _ => matching_engine.match_order(&incoming_order),
         }
         println!("{}", serde_json::to_string_pretty(&res).unwrap());
     }

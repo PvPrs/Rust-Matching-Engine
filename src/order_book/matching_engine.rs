@@ -9,9 +9,9 @@ use std::any::Any;
 use std::collections::BTreeMap;
 
 pub mod matching_engine {
+    use futures::future::Either;
     use super::*;
     use crate::order_book::matching_engine::execution_report::Events::Filled;
-    use crate::order_book::matching_engine::matching_engine::execution_report::ReportData;
 
     pub struct MatchingEngine {
         pub book: OrderBook,
@@ -26,60 +26,47 @@ pub mod matching_engine {
 
         // Match_order identifies @param: order
         // @Return -> ExecutionReport representing the events of execution for said order.
-        pub fn match_order(&mut self, order: &Order) -> Events {
-            // todo!("Include a vector to pass to is_match to add opposite side matches
-            // instead of returning, return later on with a single\")
-            match order {
+        pub fn match_order(&mut self, incoming_order: &Order) -> Events {
+            match incoming_order {
                 // Market Buy Order handling, Looks for match in asks.
-                Order::Buy { order: mut buyer, mut filled} => match buyer.order_type {
-                    OrderType::MARKET => {
-                        for mut map in self.book.asks.clone() {
-                            for (_, mut other) in map.1 {
-                                return self.is_match(order, &other);
+                Order::Buy { order, filled } |
+                Order::Sell { order, filled } => {
+                    let book_side = if incoming_order == (Order::Buy { }) {
+                        Either::Left(self.book.asks.clone())
+                    } else {
+                        Either::Right(self.book.bids.clone().iter().rev())
+                    };
+                    match order.order_type {
+                        OrderType::MARKET => {
+                            for price_levels in book_side {
+                                for (_, mut other) in price_levels.1 {
+                                    return self.is_match(incoming_order, &other);
+                                }
                             }
                         }
-                    }
-                    OrderType::LIMIT => {
-                        let mut result = Events::NotFound(*order);
-                        match self.book.asks.get(&buyer.price_level) {
-                            None => self.book.add_order(order.clone()),
-                            Some(res) => res.iter().for_each(|(participant, other)| {
-                                result = self.is_match(order, other);
-                            }),
-                        }
-                        self.book.add_order(order.clone());
-                        return result;
-                    }
-                    _ => (),
-                },
-                Order::Sell { order: mut seller, mut filled} => match seller.order_type {
-                    OrderType::MARKET => {
-                        for mut map in self.book.bids.clone().iter().rev() {
-                            for (_, mut other) in map.1 {
-                                if self.is_match(other, order) {
-                                    events.push(*other)
-                                };
+                        OrderType::LIMIT => {
+                            let mut result = Events::NotFound(*incoming_order);
+                            match if incoming_order == Order::Buy {
+                                self.book.asks.get(&order.price_level)
+                            } else {
+                                self.book.bids.get(&order.price_level) }
+                            {
+                                None => self.book.add_order(incoming_order.clone()),
+                                Some(res) => res.iter().for_each(|(participant, other)| {
+                                    result = self.is_match(incoming_order, other);
+                                }),
                             }
+                            self.book.add_order(incoming_order.clone());
+                            return result;
                         }
+                        _ => (),
                     }
-                    OrderType::LIMIT => {
-                        let mut result = Events::NotFound(*other);
-                        match self.book.bids.get(&seller.price_level) {
-                            None => self.book.add_order(order.clone()),
-                            Some(res) => res.iter().for_each(|(participant, other)| {
-                                result = self.is_match(other, order);
-                            }),
-                        }
-                        self.book.add_order(order.clone());
-                        return result;
-                    }
-                    _ => {}
-                },
-                Order::Cancel(data, ..) => return self.book.cancel_order(order.clone(), false),
-                Order::Update(data, ..) => return self.book.update_order(order.clone()),
+            },
+                Order::Cancel(data, ..) => return self.book.cancel_order(incoming_order.clone(), false),
+                Order::Update(data, ..) => return self.book.update_order(incoming_order.clone()),
                 _ => (),
             }
-            Events::NotFound(*order)
+            Events::NotFound(*incoming_order)
         }
 
         // Checks if a order represents a match with an opposing order
