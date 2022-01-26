@@ -1,5 +1,11 @@
 use crate::OrderData;
+use crate::Order;
 
+use hyper::server::conn::AddrIncoming;
+use std::convert::Infallible;
+use std::ops::Deref;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use futures::TryStreamExt;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{body, server::Server, Body, Method, Request, Response};
@@ -7,12 +13,6 @@ use std::net::SocketAddr;
 
 pub mod net {
     use super::*;
-    use crate::Order;
-    use hyper::server::conn::AddrIncoming;
-    use std::convert::Infallible;
-    use std::ops::Deref;
-    use std::sync::Arc;
-    use tokio::sync::Mutex;
 
     pub async fn handle_incoming(
         req: Request<Body>,

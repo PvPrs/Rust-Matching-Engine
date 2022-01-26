@@ -31,7 +31,7 @@ async fn main() {
     while let incoming_order = rx.recv().await.unwrap() {
         match incoming_order {
             Order::Buy { order, filled } | Order::Sell { order, filled } => {
-                while filled != order.qty {
+                while filled != order.qty || opposite_side.len() > 0 {
                     execution_events.push(matching_engine.match_order(&incoming_order))
                 }
             }

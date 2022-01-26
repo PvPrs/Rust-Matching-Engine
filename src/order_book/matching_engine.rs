@@ -1,19 +1,19 @@
 use crate::order_book::matching_engine::matching_engine::execution_report::Events;
-use crate::order_book::order_book::order::Order;
-use crate::order_book::order_book::order::{OrderData, OrderType};
-use crate::order_book::order_book::OrderBook;
+use crate::order_book::order_book::order::{Order, OrderData, OrderType};
+use crate::order_book::order_book::{OrderBook, PriceLevel};
 
-use chrono::{DateTime, Utc};
+use futures::future::Either;
+use std::collections::btree_map::Iter;
 use serde::{Deserialize, Serialize};
-use std::any::Any;
 use std::collections::BTreeMap;
 
 pub mod matching_engine {
-    use futures::future::Either;
     use super::*;
-    use crate::order_book::matching_engine::execution_report::Events::Filled;
 
+
+    /// 'Matching Engine' the content the matching engine should be parsing.
     pub struct MatchingEngine {
+        /// The matching engine parses a 'OrderBook', representing a book of orders(Buy & Ask)
         pub book: OrderBook,
     }
 
@@ -24,42 +24,34 @@ pub mod matching_engine {
             }
         }
 
-        // Match_order identifies @param: order
-        // @Return -> ExecutionReport representing the events of execution for said order.
+        /// 'match_order' represents the gateway of every 'incoming_order'
+        /// every 'incoming_order' is identified by its type of 'Order'
+        /// and handled in a recursive manner. Every cycle returns a 'Event' resulting in a complete
+        /// 'Execution_Report'.
         pub fn match_order(&mut self, incoming_order: &Order) -> Events {
             match incoming_order {
                 // Market Buy Order handling, Looks for match in asks.
-                Order::Buy { order, filled } |
-                Order::Sell { order, filled } => {
+                Order::Buy { order, filled } | Order::Sell { order, filled } => {
                     let mut book_side = if let Order::Buy { .. } = incoming_order {
-                        Either::Left(self.book.asks.clone())
-                    } else {
-                        Either::Right(self.book.bids.clone().iter().rev())
+                        self.book.asks.iter().map(|(ask, orders)| (Either::Left(ask), orders));
+                        self.book.bids.iter().map(|(buy, orders)| (Either::Right(buy), orders));
                     };
                     match order.order_type {
-                        OrderType::MARKET => {
+                        OrderType::MARKET | OrderType::LIMIT => {
                             for price_levels in book_side {
+                                if order.order_type == OrderType::LIMIT && price_levels.0 > order.price_level {
+                                    return self.book.add_order(incoming_order.clone());
+                                }
                                 for (_, mut other) in price_levels.1 {
                                     return self.is_match(incoming_order, &other);
                                 }
                             }
                         }
-                        OrderType::LIMIT => {
-                            let mut result = Events::NotFound(*incoming_order);
-                            match book_side {
-                                None => self.book.add_order(incoming_order.clone()),
-                                Some(res) => res.iter().for_each(|(participant, other)| {
-                                    result = self.is_match(incoming_order, other);
-                                }),
-                            }
-                            self.book.add_order(incoming_order.clone());
-                            return result;
-                        }
                         _ => (),
                     }
-            },
-                Order::Cancel(data, ..) => return self.book.cancel_order(incoming_order.clone(), false),
-                Order::Update(data, ..) => return self.book.update_order(incoming_order.clone()),
+                }
+                Order::Cancel(..) => return self.book.cancel_order(incoming_order.clone(), false),
+                Order::Update(..) => return self.book.update_order(incoming_order.clone()),
                 _ => (),
             }
             Events::NotFound(*incoming_order)
@@ -69,24 +61,33 @@ pub mod matching_engine {
         // @Return -> boolean to allow executor/caller to add to list of events.
         pub fn is_match(&mut self, order: &Order, other: &Order) -> Events {
             let (&mut data, &mut filled) = match order {
-                Order::Buy { order: mut order_data, filled} |
-                Order::Sell { order: mut order_data, filled}
-                => (order_data, filled),
+                Order::Buy {
+                    order: mut order_data,
+                    filled,
+                }
+                | Order::Sell {
+                    order: mut order_data,
+                    filled,
+                } => (order_data, filled),
                 _ => (Order::None),
             };
 
             let (&mut other_data, &mut other_filled) = match other {
-                Order::Buy { order: mut order_data, filled } |
-                Order::Sell { order: mut order_data, filled}
-                => (order_data, filled),
+                Order::Buy {
+                    order: mut order_data,
+                    filled,
+                }
+                | Order::Sell {
+                    order: mut order_data,
+                    filled,
+                } => (order_data, filled),
                 _ => Order::None,
             };
 
-            if *filled > *other_filled {
+            if filled.gt(*other_filled) {
                 *filled = other_data.qty;
-                other_data
                 self.book.cancel_order(other.clone(), true);
-                return Filled(*other, other_data);
+                return Events::Filled(*other, other_data);
             } else if data.qty < other_data.qty {
                 *other_filled = data.qty;
                 self.book.cancel_order(order.clone(), true)
@@ -96,21 +97,22 @@ pub mod matching_engine {
             }
         }
     }
-}
 
-// Represents the Execution Report as response on every order action
-// The module is initialized through enumerating constructors representing "Order Updates"
-pub mod execution_report {
-    use super::*;
+    /// Represents the Execution Report as response on every order action
+    /// The module is initialized through enumerating constructors representing "Order Updates"
+    /// also considered to be events, every event is part of a entire 'Execution Report'.
+    pub mod execution_report {
+        use super::*;
 
-    #[derive(Debug, Serialize, Deserialize)]
-    pub enum Events {
-        New(Order),
-        PartialFill(Order, OrderData),
-        Filled(Order, OrderData),
-        CancelOrder(Order),
-        OrderUpdate(Order),
-        NotFound(Order),
+        #[derive(Debug, Serialize, Deserialize)]
+        pub enum Events {
+            New(Order),
+            PartialFill(Order, OrderData),
+            Filled(Order, OrderData),
+            CancelOrder(Order),
+            OrderUpdate(Order),
+            NotFound(Order),
+        }
     }
 }
 
