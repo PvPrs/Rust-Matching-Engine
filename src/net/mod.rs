@@ -14,10 +14,8 @@ use std::net::SocketAddr;
 pub mod net {
     use super::*;
 
-    pub async fn handle_incoming(
-        req: Request<Body>,
-        tx: tokio::sync::mpsc::Sender<Order>,
-    ) -> Result<Response<Body>, hyper::Error> {
+    pub async fn handle_incoming(req: Request<Body>, tx: tokio::sync::mpsc::Sender<Order>)
+        -> Result<Response<Body>, hyper::Error> {
         let (head, body) = req.into_parts();
         match (head.method, head.uri.path()) {
             (Method::POST, "/") => {

@@ -1,16 +1,16 @@
 pub mod matching_engine;
 
 use crate::order_book::matching_engine::matching_engine::execution_report::Events;
-use crate::order_book::order_book::order::{OrderData, OrderType};
+use crate::order_book::order_book::order::{Order, Order::{Sell}, OrderData, OrderType};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
 use std::cmp::Ordering;
+use sorted_vec::SortedVec;
 
 pub mod order_book {
+    use std::collections::BinaryHeap;
     use super::*;
-    use crate::order_book::order_book::order::Order;
-    use crate::order_book::order_book::order::Order::Sell;
 
     pub mod order {
         use super::*;
@@ -89,56 +89,31 @@ pub mod order_book {
         }
     }
 
-    /// 'Buy' orders are ordered differently in comparison to 'Sell'
-    /// So we create 2 separate structs with distinguishable 'Ordering'
-    #[derive(Debug, Ord, PartialOrd, PartialEq, Eq)]
-    pub struct Buy { price_level: PriceLevel }
-
-    /// 'Sell' orders are ordered in a 'descending' manner
-    #[derive(Debug, PartialOrd, PartialEq, Eq)]
-    pub struct Ask { price_level: PriceLevel }
-
-    impl Ord for Ask {
-        fn cmp(&self, other: &Self) -> Ordering {
-            self::Ordering::reverse(Ordering::Less)
-        }
-    }
-
     /// 'OrderBook' represents the actual book storing the orders on two sides
     /// Asks and Bids, Both these maps are sorted based on their Key<'PriceLevel'>
     /// containing a sorted 'BTreeMap<ID, Order>' as its value.
     /// ID increments over time, meeting the 'Price-Time' requirements.
+    /// T Represents Side
     #[derive(Debug)]
-    pub struct OrderBook {
-        pub bids: BTreeMap<Buy, BTreeMap<u64, Order>>,
-        pub asks: BTreeMap<Ask, BTreeMap<u64, Order>>,
-    }
+    pub struct Book {
+        pub bookish: Vec<Order>,
+        pub order_book: BinaryHeap<Order> }
 
-    impl OrderBook {
-        pub fn new() -> OrderBook {
-            OrderBook {
-                bids: BTreeMap::new(),
-                asks: BTreeMap::new(),
+    impl Book {
+        pub fn new() -> Book {
+            Book {
+                bookish: Vec::new();
+                order_book: BinaryHeap::new(),
             }
         }
 
         pub fn add_order(&mut self, order: Order) -> Events {
             match order {
-                Order::Buy { order: data, filled } => {
-                    if filled == data.qty { return Events::NotFound(order); }
-                    self.bids
-                        .entry(Buy { price_level: data.price_level })
-                        .or_insert_with(BTreeMap::new)
-                        .insert(data.id, order);
+                Order::Buy { order: data, filled } | Order::Sell { order: data, filled } => {
+                    if filled == data.qty { return Events::Filled(order); }
+                    self.order_book.push(order);
+                    self.bookish.sort();
                     Events::New(order)
-                }
-                Order::Sell { order: data, filled } => {
-                    if filled == data.qty { return Events::NotFound(order); }
-                    self.asks
-                        .entry(Ask { price_level: data.price_level })
-                        .or_insert_with(BTreeMap::new)
-                        .insert(data.id, order);
-                    Events::OrderUpdate(order)
                 }
                 _ => Events::NotFound(order),
             }
@@ -146,31 +121,25 @@ pub mod order_book {
 
         pub fn cancel_order(&mut self, order: Order, filled: bool) -> Events {
             match order {
-                Order::Buy { order: data, .. } => {
-                    self.bids.get(&Buy { price_level: data.price_level }).unwrap().clone().remove(
-                        match data.order_type {
-                            OrderType::UPDATE => &data.prev_id,
-                            _ => &data.id,
-                        },
-                    );
-                    Events::Filled(order, data)
-                }
-                Order::Sell { order: data, .. } => {
-                    if let Some(mut price_levels) = &self.asks.get(&Ask { price_level: data.price_level }) {
-                        if let Some(id) = price_levels.clone().remove(match data.order_type {
-                            OrderType::UPDATE => &data.prev_id,
-                            _ => &data.id,
-                        }) {
-                            Events::Filled(order, data)
-                        } else {
-                            Events::CancelOrder(order)
+                Order::Buy { order: data, .. } | Order::Sell { order: data, .. } |
+                Order::Cancel(data) | Order::Update(data) => {
+                    for other_order in self.bookish {
+                        let mut index = 0;
+                        match other_order {
+                            Order::Buy { order: other_data, .. } | Order::Sell { order: other_data, .. } => {
+                                if data.prev_id == other_data.id { self.bookish.remove(index); }
+                                if filled { return Events::Filled(order); }
+                                if let Order::Update( .. ) = order { return Events::OrderUpdate(other_order) }
+                                if let Order::Cancel( .. ) = order { return Events::CancelOrder(other_order) }
+                            }
+                            _ => {}
                         }
-                    } else {
-                        Events::NotFound(order)
+                        index += 1;
                     }
                 }
                 _ => Events::NotFound(order),
             }
+            Events::NotFound(order)
         }
 
         pub fn update_order(&mut self, order: Order) -> Events {
